@@ -39,8 +39,7 @@ float lastButtonState = 0;
 float MaturityMinutesWhenDone = 57600;
 float NumberOfMaturityMinutesElapsed = 0.0;
 DateTime LastUpdate;
-int minutesPassed = 0;
-int hoursPassed = 0;
+int HoursPassed = -1;  // -1 to make initial update show as 0;
 // ######################## end Other section ################################## 
 
 void setup(void) {
@@ -55,6 +54,9 @@ void setup(void) {
   lcd.begin(16, 2);
   updateTemperature(getTemperature());
   updateMaturityOnLcd(RTC.now());
+  updatePercentDone();
+  updateTimePassed();
+  updateTimeLeft(getTemperature());
   
   // Other
   pinMode(buttonPin, INPUT);
@@ -69,30 +71,40 @@ void loop(void) {
   updateMaturityMinutes(temperature);
 
   updatePercentDone();
-
-  updateTimePased();
-
-  updateTimeLeft();
   
-  //updateDisplayClock();
+  if(LastUpdate.hour() != RTC.now().hour())
+    updateTimePassed();
+
+  updateTimeLeft(temperature);
 }
 
-void updateTimePased(){
-  hoursPassed = RTC.now().hour();
-  minutesPassed = RTC.now().minute();
-  lcd.setCursor(12, 0);
-  lcd.print(hoursPassed);
-  lcd.print("t");
-  //lcd.print(minutesPassed);
+void updateTimePassed(){
+  HoursPassed++;
+    
+  if(HoursPassed < 10)
+    lcd.setCursor(15, 0);
+  else if(HoursPassed < 100)
+    lcd.setCursor(14, 0);
+  else
+    lcd.setCursor(13, 0);
+    
+  lcd.print(HoursPassed);
+  //lcd.print("t");
+  //lcd.print(MinutesPassed);
   //lcd.print("m");
 }
 
-void updateTimeLeft() {
-  int hoursLeft = (MaturityMinutesWhenDone - NumberOfMaturityMinutesElapsed)/60;
-  int minutesLeft = MaturityMinutesWhenDone - NumberOfMaturityMinutesElapsed - (hoursLeft*60);
-  lcd.setCursor(12, 1);
+void updateTimeLeft(float temperature) {
+  int hoursLeft = (((MaturityMinutesWhenDone / (temperature * 24 * 60.0)) * 24.0 * 60) - NumberOfMaturityMinutesElapsed) / 60;
+  if(hoursLeft < 10)
+    lcd.setCursor(15, 1);
+  else if(hoursLeft < 100)
+    lcd.setCursor(14, 1);
+  else
+    lcd.setCursor(13, 1);
+    
   lcd.print(hoursLeft);
-  lcd.print("t");
+  //lcd.print("t");
   //lcd.print(minutesLeft);
   //lcd.print("m");
 }
@@ -115,7 +127,7 @@ void updateMaturityMinutes(float temperature) {
 void updateMaturityOnLcd(DateTime currentTime) {
   lcd.setCursor(0, 1);
   lcd.print((NumberOfMaturityMinutesElapsed/60.0)/24.0, 1);
-  lcd.print("DG");
+  lcd.print("D");
   LastUpdate = currentTime;
 
   
@@ -127,36 +139,6 @@ void updatePercentDone(){
   lcd.print("%");
 }
 
-
-void updateDisplayClock() {
-  DateTime now = RTC.now();
-  lcd.setCursor(8, 0);
-  int hour = now.hour();
-  int minute = now.minute();
-  int second = now.second();
-  
-  if(hour < 10) {
-    lcd.print("0");
-    lcd.print(hour);
-  }
-  else
-    lcd.print(hour);
-  lcd.print(":");
-  if(minute < 10) {
-    lcd.print("0");
-    lcd.print(minute);
-  }
-  else
-    lcd.print(minute);
-  lcd.print(":");
-  if(second < 10) {
-    lcd.print("0");
-    lcd.print(second);
-  }
-  else
-    lcd.print(second);
-}
-
 void readButton() {
   // read the state of the pushbutton value:
   int buttonState = digitalRead(buttonPin);
@@ -166,8 +148,7 @@ void readButton() {
   if (buttonState == HIGH && lastButtonState == LOW) {
     NumberOfMaturityMinutesElapsed = 0.0;
     updateMaturityMinutes(getTemperature());
-    hoursPassed = 0;
-    minutesPassed = 0;
+    HoursPassed = 0;
     lastButtonState = buttonState;
   } else {
     lastButtonState = buttonState;
