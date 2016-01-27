@@ -19,7 +19,6 @@
  
 int samples[NUMSAMPLES];
 
-
 // ######################### end thermistor section ##########################
 
 
@@ -39,7 +38,8 @@ float lastButtonState = 0;
 float MaturityMinutesWhenDone = 57600;
 float NumberOfMaturityMinutesElapsed = 0.0;
 DateTime StartTime;
-DateTime LastUpdate;
+DateTime LastMinuteUpdate;
+DateTime LastHourUpdate;
 int HoursPassed = -1;  // -1 to make initial update show as 0;
 // ######################## end Other section ################################## 
 
@@ -49,14 +49,14 @@ void setup(void) {
   RTC.begin();
   // following line sets the RTC to the date & time this sketch was compiled
   RTC.adjust(DateTime(__DATE__, __TIME__));
-  StartTime = LastUpdate = RTC.now();
+  StartTime = LastMinuteUpdate = LastHourUpdate = RTC.now();
 
   // LCD
   lcd.begin(16, 2);
   updateTemperature(getTemperature());
-  updateMaturityOnLcd(RTC.now());
+  updateMaturityOnLcd(StartTime);
   updatePercentDone();
-  updateTimePassed();
+  updateTimePassed(StartTime);
   updateTimeLeft(getTemperature(), 0);
   
   // Other
@@ -66,21 +66,22 @@ void setup(void) {
 void loop(void) {
   readButtonState();
 
-  if(LastUpdate.hour() != RTC.now().hour())
-    updateTimePassed();
+  DateTime now = RTC.now();
+  if(LastHourUpdate.hour() != now.hour())
+    updateTimePassed(now);
   
   float temperature = getTemperature();
   updateTemperature(temperature);
 
-  updateMaturityMinutes(temperature);
+  updateMaturityMinutes(temperature, now);
 
   updatePercentDone();
 
-  float percentageDone = NumberOfMaturityMinutesElapsed/MaturityMinutesWhenDone;
+  float percentageDone = NumberOfMaturityMinutesElapsed / MaturityMinutesWhenDone;
   updateTimeLeft(temperature, percentageDone);
 }
 
-void updateTimePassed(){
+void updateTimePassed(DateTime now){
   HoursPassed++;
     
   if(HoursPassed < 10)
@@ -91,9 +92,7 @@ void updateTimePassed(){
     lcd.setCursor(13, 0);
     
   lcd.print(HoursPassed);
-  //lcd.print("t");
-  //lcd.print(MinutesPassed);
-  //lcd.print("m");
+  LastHourUpdate = now;
 }
 
 void updateTimeLeft(float temperature, float percentageDone) {
@@ -106,23 +105,18 @@ void updateTimeLeft(float temperature, float percentageDone) {
     lcd.setCursor(13, 1);
     
   lcd.print(hoursLeft);
-  //lcd.print("t");
-  //lcd.print(minutesLeft);
-  //lcd.print("m");
 }
 
 void updateTemperature(float temperature){
-  
   lcd.setCursor(0, 0);
   lcd.print(temperature, 1);
   lcd.print("C");
 }
 
-void updateMaturityMinutes(float temperature) {
-  DateTime currentTime = RTC.now();
-  if(currentTime.minute() != LastUpdate.minute()) {
+void updateMaturityMinutes(float temperature, DateTime now) {
+  if(now.minute() != LastMinuteUpdate.minute()) {
     NumberOfMaturityMinutesElapsed += temperature;
-    updateMaturityOnLcd(currentTime);
+    updateMaturityOnLcd(now);
   }
 }
 
@@ -130,11 +124,7 @@ void updateMaturityOnLcd(DateTime currentTime) {
   lcd.setCursor(0, 1);
   lcd.print((NumberOfMaturityMinutesElapsed/60.0)/24.0, 1);
   lcd.print("D");
-  //lcd.print(NumberOfMaturityMinutesElapsed);
-  //lcd.print("M");
-  LastUpdate = currentTime;
-
-  
+  LastMinuteUpdate = currentTime;
 }
 
 void updatePercentDone(){
@@ -151,10 +141,10 @@ void readButtonState() {
   // check if the pushbutton is pressed.
   // if it is, the buttonState is HIGH:
   if (buttonState == HIGH) {
-    StartTime = LastUpdate = RTC.now();
+    StartTime = LastMinuteUpdate = LastHourUpdate = RTC.now();
     HoursPassed = -1;
     NumberOfMaturityMinutesElapsed = 0;
-    updateTimePassed();
+    updateTimePassed(StartTime);
   }
 }
 
